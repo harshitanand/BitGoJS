@@ -3,7 +3,8 @@ import { apiSpec } from '@api-ts/io-ts-http';
 import * as express from 'express';
 
 import { GetPing } from './common/ping';
-import { GetPingExpress } from './common/pingExpress';
+import { GetV1PingExpress } from './v1/pingExpress';
+import { GetV2PingExpress } from './v2/pingExpress';
 import { PostLogin } from './common/login';
 import { PostDecrypt } from './common/decrypt';
 import { PostEncrypt } from './common/encrypt';
@@ -69,8 +70,11 @@ export const ExpressPingApiSpec = apiSpec({
 });
 
 export const ExpressPingExpressApiSpec = apiSpec({
-  'express.pingExpress': {
-    get: GetPingExpress,
+  'express.v1.ping': {
+    get: GetV1PingExpress,
+  },
+  'express.ping': {
+    get: GetV2PingExpress,
   },
 });
 

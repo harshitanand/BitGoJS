@@ -83,7 +83,7 @@ function handlePing(
   return req.bitgo.ping();
 }
 
-function handlePingExpress(req: ExpressApiRouteRequest<'express.pingExpress', 'get'>) {
+function handlePingExpress(req: ExpressApiRouteRequest<'express.ping', 'get'>) {
   return {
     status: 'express server is ok!',
   };
@@ -1695,7 +1695,8 @@ export function setupAPIRoutes(app: express.Application, config: Config): void {
   app.use(router);
 
   router.get('express.ping', [prepareBitGo(config), typedPromiseWrapper(handlePing)]);
-  router.get('express.pingExpress', [typedPromiseWrapper(handlePingExpress)]);
+  router.get('express.v1.ping', [typedPromiseWrapper(handlePingExpress)]);
+  router.get('express.ping', [typedPromiseWrapper(handlePingExpress)]);
 
   // auth
   router.post('express.login', [prepareBitGo(config), typedPromiseWrapper(handleLogin)]);
