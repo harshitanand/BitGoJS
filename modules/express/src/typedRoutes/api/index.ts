@@ -2,7 +2,8 @@ import * as t from 'io-ts';
 import { apiSpec } from '@api-ts/io-ts-http';
 import * as express from 'express';
 
-import { GetPing } from './common/ping';
+import { GetV1Ping } from './v1/ping';
+import { GetV2Ping } from './v2/ping';
 import { GetPingExpress } from './common/pingExpress';
 import { PostLogin } from './common/login';
 import { PostDecrypt } from './common/decrypt';
@@ -63,8 +64,11 @@ import { GetResourceDelegations } from './v2/resourceDelegations';
 // inference stays small; (2) only construct expressApi with a single key and add it to the type union at the end.
 
 export const ExpressPingApiSpec = apiSpec({
-  'express.ping': {
-    get: GetPing,
+  'express.v1.ping': {
+    get: GetV1Ping,
+  },
+  'express.v2.ping': {
+    get: GetV2Ping,
   },
 });
 
