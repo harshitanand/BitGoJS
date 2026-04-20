@@ -1053,6 +1053,53 @@ export async function handleV2ResourceDelegations(
 }
 
 /**
+ * Handle bulk resource delegation (e.g. TRX ENERGY/BANDWIDTH delegation).
+ * Builds, signs, and sends one on-chain delegation transaction per entry in req.body.delegations.
+ * @param req
+ */
+export async function handleV2DelegateResources(
+  req: ExpressApiRouteRequest<'express.v2.wallet.delegateresources', 'post'>
+) {
+  const bitgo = req.bitgo;
+  const coin = bitgo.coin(req.decoded.coin);
+
+  if (!Array.isArray(req.decoded.delegations) || req.decoded.delegations.length === 0) {
+    throw new Error('delegations must be a non-empty array');
+  }
+
+  const wallet = await coin.wallets().get({ id: req.decoded.id });
+
+  let result: any;
+  try {
+    if (coin.supportsTss()) {
+      result = await wallet.sendAccountDelegations(createTSSSendParams(req, wallet));
+    } else {
+      result = await wallet.sendAccountDelegations(createSendParams(req));
+    }
+  } catch (err) {
+    err.status = 400;
+    throw err;
+  }
+
+  // Handle partial success / failure
+  if (result.failure.length > 0) {
+    let msg = '';
+    let status = 202;
+
+    if (result.success.length > 0) {
+      msg = `Transactions failed: ${result.failure.length} and succeeded: ${result.success.length}`;
+    } else {
+      status = 400;
+      msg = `All transactions failed`;
+    }
+
+    throw apiResponse(status, result, msg);
+  }
+
+  return result;
+}
+
+/**
  *  payload meant for prebuildAndSignTransaction() in sdk-core which
  * validates the payload and makes the appropriate request to WP to
  * build, sign, and send a tx.
@@ -1829,6 +1876,10 @@ export function setupAPIRoutes(app: express.Application, config: Config): void {
   router.get('express.v2.wallet.resourcedelegations', [
     prepareBitGo(config),
     typedPromiseWrapper(handleV2ResourceDelegations),
+  ]);
+  router.post('express.v2.wallet.delegateresources', [
+    prepareBitGo(config),
+    typedPromiseWrapper(handleV2DelegateResources),
   ]);
 
   // Miscellaneous

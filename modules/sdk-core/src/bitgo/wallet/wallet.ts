@@ -58,6 +58,7 @@ import {
   AddressesByBalanceOptions,
   AddressesOptions,
   BuildConsolidationTransactionOptions,
+  BuildDelegationTransactionOptions,
   BuildTokenEnablementOptions,
   BulkCreateShareOption,
   BulkWalletShareKeychain,
@@ -3404,6 +3405,113 @@ export class Wallet implements IWallet {
         failure: failedTxs,
       };
     }
+  }
+
+  /**
+   * Builds a set of resource delegation transactions for the given delegation entries.
+   * Each entry delegates resources (e.g. ENERGY, BANDWIDTH) from this wallet's root address
+   * to a receiver address. Modelled after buildAccountConsolidations.
+   *
+   * @param params.delegations - Array of { receiverAddress, amount, resource } entries
+   * @returns Unsigned prebuild transaction results, one per delegation entry
+   */
+  async buildAccountDelegations(params: BuildDelegationTransactionOptions): Promise<PrebuildTransactionResult[]> {
+    if (!params.delegations || params.delegations.length === 0) {
+      throw new Error('delegations must be a non-empty array.');
+    }
+
+    if (params.reqId) {
+      this.bitgo.setRequestTracer(params.reqId);
+    }
+
+    const buildResponse = (await this.bitgo
+      .post(this.baseCoin.url('/wallet/' + this.id() + '/delegateResources/build'))
+      .send(_.pick(params, ['delegations', 'apiVersion']))
+      .result()) as { transactions: any[]; errors: any[] };
+
+    const delegations: PrebuildTransactionResult[] = [];
+    for (const rawTx of buildResponse.transactions) {
+      let prebuild: PrebuildTransactionResult = (await this.baseCoin.postProcessPrebuild(
+        Object.assign(rawTx, { wallet: this, buildParams: params })
+      )) as PrebuildTransactionResult;
+
+      delete prebuild.wallet;
+      delete prebuild.buildParams;
+
+      prebuild = _.extend({}, prebuild, { walletId: this.id() });
+      delegations.push(prebuild);
+    }
+    return delegations;
+  }
+
+  /**
+   * Signs and sends a single resource delegation transaction.
+   * Signing flow by wallet type (mirrors sendAccountConsolidation):
+   *   - TSS (hot or custodial)    → sendManyTxRequests  (requires txRequestId on prebuildTx)
+   *   - Custodial non-TSS         → initiateTransaction (BitGo auto-signs with its key)
+   *   - Hot non-TSS               → prebuildAndSignTransaction + submitTransaction
+   *
+   * @param params.prebuildTx - A single prebuild result from buildAccountDelegations
+   */
+  async sendAccountDelegation(params: PrebuildAndSignTransactionOptions = {}): Promise<any> {
+    if (typeof params.prebuildTx === 'string' || params.prebuildTx === undefined) {
+      throw new Error('Invalid prebuild for account delegation.');
+    }
+
+    // TSS path (hot or custodial): signing service holds the key shares
+    if (this._wallet.multisigType === 'tss') {
+      if (!params.prebuildTx.txRequestId) {
+        throw new Error('Delegation request missing txRequestId for TSS wallet.');
+      }
+      return await this.sendManyTxRequests(params);
+    }
+
+    // Custodial non-TSS: BitGo holds the key, send for BitGo approval and signing
+    if (this._wallet.type === 'custodial') {
+      params.type = 'delegateResource';
+      return this.initiateTransaction(params as TxSendBody, params.reqId);
+    }
+
+    // Hot non-TSS: user holds the key, sign locally and submit
+    const signedPrebuild = (await this.prebuildAndSignTransaction(params)) as any;
+    delete signedPrebuild.wallet;
+    return await this.submitTransaction(signedPrebuild, params.reqId);
+  }
+
+  /**
+   * Builds, signs, and sends all resource delegation transactions in a single call.
+   * Validates the wallet passphrase upfront before building, then sends each delegation
+   * individually. Returns { success, failure } so partial success is handled gracefully.
+   *
+   * @param params.delegations - Array of { receiverAddress, amount, resource } entries
+   */
+  async sendAccountDelegations(
+    params: BuildDelegationTransactionOptions
+  ): Promise<{ success: any[]; failure: Error[] }> {
+    // Validate passphrase upfront to fail fast before building N transactions
+    await this.getKeychainsAndValidatePassphrase({
+      reqId: params.reqId,
+      walletPassphrase: params.walletPassphrase,
+      customSigningFunction: params.customSigningFunction,
+    });
+
+    const unsignedBuilds = await this.buildAccountDelegations(params);
+    const successfulTxs: any[] = [];
+    const failedTxs: Error[] = [];
+
+    for (const unsignedBuild of unsignedBuilds) {
+      const unsignedBuildWithOptions: PrebuildAndSignTransactionOptions = Object.assign({}, params, {
+        prebuildTx: unsignedBuild,
+      });
+      try {
+        const sendTx = await this.sendAccountDelegation(unsignedBuildWithOptions);
+        successfulTxs.push(sendTx);
+      } catch (e) {
+        failedTxs.push(e as Error);
+      }
+    }
+
+    return { success: successfulTxs, failure: failedTxs };
   }
 
   /**

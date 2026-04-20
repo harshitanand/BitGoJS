@@ -54,6 +54,7 @@ import { PostWalletAccelerateTx } from './v2/walletAccelerateTx';
 import { PostIsWalletAddress } from './v2/isWalletAddress';
 import { GetAccountResources } from './v2/accountResources';
 import { GetResourceDelegations } from './v2/resourceDelegations';
+import { PostDelegateResources } from './v2/delegateResources';
 
 // Too large types can cause the following error
 //
@@ -173,6 +174,12 @@ export const ExpressWalletConsolidateUnspentsApiSpec = apiSpec({
 export const ExpressV2WalletConsolidateAccountApiSpec = apiSpec({
   'express.wallet.consolidateaccount': {
     post: PostConsolidateAccount,
+  },
+});
+
+export const ExpressV2WalletDelegateResourcesApiSpec = apiSpec({
+  'express.v2.wallet.delegateresources': {
+    post: PostDelegateResources,
   },
 });
 
@@ -381,6 +388,7 @@ export type ExpressApi = typeof ExpressPingApiSpec &
   typeof ExpressV2WalletAccelerateTxApiSpec &
   typeof ExpressV2WalletAccountResourcesApiSpec &
   typeof ExpressV2WalletResourceDelegationsApiSpec &
+  typeof ExpressV2WalletDelegateResourcesApiSpec &
   typeof ExpressWalletManagementApiSpec;
 
 export const ExpressApi: ExpressApi = {
@@ -424,6 +432,7 @@ export const ExpressApi: ExpressApi = {
   ...ExpressV2WalletAccelerateTxApiSpec,
   ...ExpressV2WalletAccountResourcesApiSpec,
   ...ExpressV2WalletResourceDelegationsApiSpec,
+  ...ExpressV2WalletDelegateResourcesApiSpec,
   ...ExpressWalletManagementApiSpec,
 };
 

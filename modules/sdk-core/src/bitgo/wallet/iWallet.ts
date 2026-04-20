@@ -63,6 +63,17 @@ export interface BuildConsolidationTransactionOptions extends PrebuildTransactio
   consolidateAddresses?: string[];
 }
 
+export interface DelegationEntry {
+  receiverAddress: string;
+  amount: string;
+  /** Resource type to delegate (e.g. 'ENERGY', 'BANDWIDTH'). Kept as string so it is not TRX-specific. */
+  resource: string;
+}
+
+export interface BuildDelegationTransactionOptions extends PrebuildTransactionOptions, WalletSignTransactionOptions {
+  delegations: DelegationEntry[];
+}
+
 export interface BuildTokenEnablementOptions extends PrebuildTransactionOptions {
   enableTokens: TokenEnablement[];
 }
@@ -1096,6 +1107,9 @@ export interface IWallet {
   buildAccountConsolidations(params?: BuildConsolidationTransactionOptions): Promise<PrebuildTransactionResult[]>;
   sendAccountConsolidation(params?: PrebuildAndSignTransactionOptions): Promise<any>;
   sendAccountConsolidations(params?: BuildConsolidationTransactionOptions): Promise<any>;
+  buildAccountDelegations(params: BuildDelegationTransactionOptions): Promise<PrebuildTransactionResult[]>;
+  sendAccountDelegation(params: PrebuildAndSignTransactionOptions): Promise<any>;
+  sendAccountDelegations(params: BuildDelegationTransactionOptions): Promise<{ success: any[]; failure: Error[] }>;
   buildTokenEnablements(params?: BuildTokenEnablementOptions): Promise<PrebuildTransactionResult[]>;
   sendTokenEnablement(params?: PrebuildAndSignTransactionOptions): Promise<any>;
   sendTokenEnablements(params?: BuildTokenEnablementOptions): Promise<any>;
