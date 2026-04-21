@@ -3701,6 +3701,18 @@ export class Wallet implements IWallet {
           params.preview
         );
         break;
+      case 'closeAta':
+        txRequest = await this.tssUtils!.prebuildTxWithIntent(
+          {
+            reqId,
+            intentType: 'closeAta',
+            ataAddresses: params.ataAddresses,
+            memo: params.memo,
+          },
+          apiVersion,
+          params.preview
+        );
+        break;
       case 'acceleration':
         txRequest = await this.tssUtils!.prebuildTxWithIntent(
           {

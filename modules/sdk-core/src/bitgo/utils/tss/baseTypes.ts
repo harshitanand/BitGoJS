@@ -236,6 +236,8 @@ export interface PrebuildTransactionWithIntentOptions extends IntentOptionsBase 
   }[];
   tokenName?: string;
   enableTokens?: TokenEnablement[];
+  /** ATA addresses to close (for Solana closeAta intent type) */
+  ataAddresses?: string[];
   nonce?: string;
   selfSend?: boolean;
   feeOptions?: FeeOption | EIP1559FeeOptions;
@@ -325,6 +327,8 @@ export interface PopulatedIntent extends PopulatedIntentBase {
   nonce?: string;
   token?: string;
   enableTokens?: TokenEnablement[];
+  /** ATA addresses to close (for Solana closeAta intent type) */
+  ataAddresses?: string[];
   unspents?: string[];
   fundsInAddressBalance?: string;
   /**

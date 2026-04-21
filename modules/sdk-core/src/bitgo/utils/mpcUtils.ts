@@ -156,6 +156,7 @@ export abstract class MpcUtils {
         'transferReject',
         'transferOfferWithdrawn',
         'bridgeFunds',
+        'closeAta',
       ].includes(params.intentType)
     ) {
       assert(params.recipients, `'recipients' is a required parameter for ${params.intentType} intent`);
@@ -248,6 +249,7 @@ export abstract class MpcUtils {
         memo: params.memo?.value,
         token: params.tokenName,
         enableTokens: params.enableTokens,
+        ataAddresses: params.ataAddresses,
         feeOptions: params.feeOptions,
         feeToken: params.feeToken,
       };
@@ -258,6 +260,7 @@ export abstract class MpcUtils {
       memo: params.memo?.value,
       token: params.tokenName,
       enableTokens: params.enableTokens,
+      ataAddresses: params.ataAddresses,
       feeToken: params.feeToken,
     };
   }

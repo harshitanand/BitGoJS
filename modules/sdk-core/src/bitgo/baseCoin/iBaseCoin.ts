@@ -227,6 +227,8 @@ export interface VerificationOptions {
   verifyTokenEnablement?: boolean;
   // Verify transaction is consolidating to wallet's base address
   consolidationToBaseAddress?: boolean;
+  // Verify ATA closure sends funds only to wallet's root address
+  verifyCloseAta?: boolean;
 }
 
 export interface VerifyTransactionOptions {

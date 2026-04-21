@@ -151,6 +151,8 @@ export interface PrebuildTransactionOptions {
   nftCollectionId?: string;
   nftId?: string;
   enableTokens?: TokenEnablement[];
+  /** ATA addresses to close (for Solana closeAta intent type) */
+  ataAddresses?: string[];
   nonce?: string;
   preview?: boolean;
   eip1559?: EIP1559;

@@ -8,9 +8,11 @@ import { TransactionBuilder } from './transactionBuilder';
 import { validateAddress } from './utils';
 
 export class CloseAtaBuilder extends TransactionBuilder {
-  protected _accountAddress: string;
-  protected _destinationAddress: string;
-  protected _authorityAddress: string;
+  // Unified storage for all close entries (single or bulk)
+  protected _closeAtaEntries: { accountAddress: string; destinationAddress: string; authorityAddress: string }[] = [];
+
+  // Track whether the legacy single-ATA API is being used
+  private _usingSingleAtaApi = false;
 
   constructor(_coinConfig: Readonly<CoinConfig>) {
     super(_coinConfig);
@@ -21,21 +23,79 @@ export class CloseAtaBuilder extends TransactionBuilder {
     return TransactionType.CloseAssociatedTokenAccount;
   }
 
+  /**
+   * Sets the ATA account address to close (single-ATA API, backward compatible).
+   * Cannot be mixed with addCloseAtaInstruction().
+   */
   accountAddress(accountAddress: string): this {
     validateAddress(accountAddress, 'accountAddress');
-    this._accountAddress = accountAddress;
+    this._usingSingleAtaApi = true;
+    this._ensureSingleEntry();
+    this._closeAtaEntries[0].accountAddress = accountAddress;
     return this;
   }
 
+  /**
+   * Sets the destination address for rent SOL (single-ATA API, backward compatible).
+   * Cannot be mixed with addCloseAtaInstruction().
+   */
   destinationAddress(destinationAddress: string): this {
     validateAddress(destinationAddress, 'destinationAddress');
-    this._destinationAddress = destinationAddress;
+    this._usingSingleAtaApi = true;
+    this._ensureSingleEntry();
+    this._closeAtaEntries[0].destinationAddress = destinationAddress;
     return this;
   }
 
+  /**
+   * Sets the authority address / ATA owner (single-ATA API, backward compatible).
+   * Cannot be mixed with addCloseAtaInstruction().
+   */
   authorityAddress(authorityAddress: string): this {
     validateAddress(authorityAddress, 'authorityAddress');
-    this._authorityAddress = authorityAddress;
+    this._usingSingleAtaApi = true;
+    this._ensureSingleEntry();
+    this._closeAtaEntries[0].authorityAddress = authorityAddress;
+    return this;
+  }
+
+  /**
+   * Ensures a single entry exists in _closeAtaEntries for the legacy API.
+   */
+  private _ensureSingleEntry(): void {
+    if (this._closeAtaEntries.length === 0) {
+      this._closeAtaEntries.push({ accountAddress: '', destinationAddress: '', authorityAddress: '' });
+    }
+  }
+
+  /**
+   * Add an ATA to close in this transaction (for bulk closure).
+   * Cannot be mixed with the single-ATA API (accountAddress/destinationAddress/authorityAddress).
+   *
+   * @param {string} accountAddress - the ATA address to close
+   * @param {string} destinationAddress - where rent SOL goes (root wallet address)
+   * @param {string} authorityAddress - ATA owner who must sign
+   */
+  addCloseAtaInstruction(accountAddress: string, destinationAddress: string, authorityAddress: string): this {
+    if (this._usingSingleAtaApi) {
+      throw new BuildTransactionError(
+        'Cannot mix addCloseAtaInstruction() with single-ATA API (accountAddress/destinationAddress/authorityAddress)'
+      );
+    }
+
+    validateAddress(accountAddress, 'accountAddress');
+    validateAddress(destinationAddress, 'destinationAddress');
+    validateAddress(authorityAddress, 'authorityAddress');
+
+    if (accountAddress === destinationAddress) {
+      throw new BuildTransactionError('Account address to close cannot be the same as the destination address');
+    }
+
+    if (this._closeAtaEntries.some((entry) => entry.accountAddress === accountAddress)) {
+      throw new BuildTransactionError('Duplicate ATA address: ' + accountAddress);
+    }
+
+    this._closeAtaEntries.push({ accountAddress, destinationAddress, authorityAddress });
     return this;
   }
 
@@ -45,33 +105,39 @@ export class CloseAtaBuilder extends TransactionBuilder {
     for (const instruction of this._instructionsData) {
       if (instruction.type === InstructionBuilderTypes.CloseAssociatedTokenAccount) {
         const ataCloseInstruction: AtaClose = instruction;
-        this.accountAddress(ataCloseInstruction.params.accountAddress);
-        this.destinationAddress(ataCloseInstruction.params.destinationAddress);
-        this.authorityAddress(ataCloseInstruction.params.authorityAddress);
+        this._closeAtaEntries.push({
+          accountAddress: ataCloseInstruction.params.accountAddress,
+          destinationAddress: ataCloseInstruction.params.destinationAddress,
+          authorityAddress: ataCloseInstruction.params.authorityAddress,
+        });
       }
     }
   }
 
   /** @inheritdoc */
   protected async buildImplementation(): Promise<Transaction> {
-    assert(this._accountAddress, 'Account Address must be set before building the transaction');
-    assert(this._destinationAddress, 'Destination Address must be set before building the transaction');
-    assert(this._authorityAddress, 'Authority Address must be set before building the transaction');
+    assert(this._closeAtaEntries.length > 0, 'At least one ATA must be specified before building the transaction');
 
-    if (this._accountAddress === this._destinationAddress) {
-      throw new BuildTransactionError('Account address to close cannot be the same as the destination address');
+    for (const entry of this._closeAtaEntries) {
+      assert(entry.accountAddress, 'Account Address must be set before building the transaction');
+      assert(entry.destinationAddress, 'Destination Address must be set before building the transaction');
+      assert(entry.authorityAddress, 'Authority Address must be set before building the transaction');
+
+      if (entry.accountAddress === entry.destinationAddress) {
+        throw new BuildTransactionError('Account address to close cannot be the same as the destination address');
+      }
     }
 
-    const closeAssociatedTokenAccountData: AtaClose = {
-      type: InstructionBuilderTypes.CloseAssociatedTokenAccount,
-      params: {
-        accountAddress: this._accountAddress,
-        destinationAddress: this._destinationAddress,
-        authorityAddress: this._authorityAddress,
-      },
-    };
-
-    this._instructionsData = [closeAssociatedTokenAccountData];
+    this._instructionsData = this._closeAtaEntries.map(
+      (entry): AtaClose => ({
+        type: InstructionBuilderTypes.CloseAssociatedTokenAccount,
+        params: {
+          accountAddress: entry.accountAddress,
+          destinationAddress: entry.destinationAddress,
+          authorityAddress: entry.authorityAddress,
+        },
+      })
+    );
 
     return await super.buildImplementation();
   }
