@@ -39,13 +39,13 @@ export const LoginRequest = {
 };
 
 /**
- * Login
+ * Login (v1)
  *
- * @operationId express.login
- * @tag express
+ * @operationId express.v1.login
+ * @tag Express
  */
-export const PostLogin = httpRoute({
-  path: '/api/v[12]/user/login',
+export const PostV1Login = httpRoute({
+  path: '/api/v1/user/login',
   method: 'POST',
   request: httpRequest({
     body: LoginRequest,

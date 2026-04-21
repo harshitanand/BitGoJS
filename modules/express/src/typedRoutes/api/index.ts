@@ -4,7 +4,8 @@ import * as express from 'express';
 
 import { GetPing } from './common/ping';
 import { GetPingExpress } from './common/pingExpress';
-import { PostLogin } from './common/login';
+import { PostV1Login } from './v1/login';
+import { PostV2Login } from './v2/login';
 import { PostDecrypt } from './common/decrypt';
 import { PostEncrypt } from './common/encrypt';
 import { PostVerifyAddress } from './common/verifyAddress';
@@ -75,8 +76,11 @@ export const ExpressPingExpressApiSpec = apiSpec({
 });
 
 export const ExpressLoginApiSpec = apiSpec({
+  'express.v1.login': {
+    post: PostV1Login,
+  },
   'express.login': {
-    post: PostLogin,
+    post: PostV2Login,
   },
 });
 
